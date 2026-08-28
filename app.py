@@ -214,7 +214,6 @@ try:
         else "El activo ha penetrado niveles clave de retroceso, lo que sugiere cautela antes de abrir nuevas posiciones."
     )
 
-    # CORRECCIÓN DE FORMATO: Se usa '\$' para evitar que Streamlit lo procese como fórmula LaTeX
     st.info(
         f"🔍 **Diagnóstico Táctico Estructural:**\n\n"
         f"• **Situación de Fibonacci:** El precio cotiza entre el soporte de **\\${soporte_proximo:.2f}** y la resistencia de **\\${resistencia_proxima:.2f}**.\n\n"
@@ -397,24 +396,63 @@ try:
         html_code += "</tbody></table>"
         st.markdown(html_code, unsafe_allow_html=True)
 
-        st.markdown(f"### 📝 Análisis Sintético de los Últimos 3 Años ({ticker_sel})")
-        
-        pe_ratio = info.get('trailingPE', 'N/A')
-        fcf_yield = f"{(info.get('freeCashflow', 0) / info.get('marketCap', 1))*100:.2f}%" if info.get('marketCap') else "N/A"
-        
-        rev_last = f"\\${rev_list[-1]:.2f}B" if not pd.isna(rev_list[-1]) else "N/A"
-        rev_first = f"\\${rev_list[0]:.2f}B" if not pd.isna(rev_list[0]) else "N/A"
-        fcf_last = f"\\${fcf_list[-1]:.2f}B" if not pd.isna(fcf_list[-1]) else "N/A"
-        debt_last = f"\\${debt_list[-1]:.2f}B" if not pd.isna(debt_list[-1]) else "N/A"
+        # --- ANÁLISIS DINÁMICO BASADO EN TENDENCIAS REALES DE LA TABLA ---
+        st.markdown(f"### 📋 Lectura de Tendencias Fundamentals ({ticker_sel})")
 
-        resumen_especifico = (
-            f"El desempeño multianual de **{ticker_sel}** refleja la capacidad del activo para sostener su ventaja "
-            f"competitiva y generar valor al accionista. En el periodo analizado, los ingresos pasaron de **{rev_first}** a **{rev_last}**, "
-            f"respaldados por una generación de Free Cash Flow de **{fcf_last}** que confirma la calidad operacional del negocio. "
-            f"Por su parte, la contención de la deuda en **{debt_last}** refuerza la solidez del balance y optimiza "
-            f"el retorno sobre el capital invertido respecto a sus métricas actuales de valuación (P/E TTM de **{pe_ratio}x** y FCF Yield de **{fcf_yield}**)."
+        # Auxiliar para evaluar variación histórica
+        def evaluar_tendencia(serie):
+            validos = [v for v in serie if not pd.isna(v)]
+            if len(validos) < 2:
+                return "sin_datos", 0.0
+            inicio, fin = validos[0], validos[-1]
+            if inicio == 0:
+                return "estable", 0.0
+            var_pct = ((fin - inicio) / abs(inicio)) * 100
+            if var_pct > 5:
+                return "creciente", var_pct
+            elif var_pct < -5:
+                return "decreciente", var_pct
+            return "estable", var_pct
+
+        tend_rev, var_rev = evaluar_tendencia(rev_list)
+        tend_eps, var_eps = evaluar_tendencia(eps_list)
+        tend_gross, var_gross = evaluar_tendencia(gross_list)
+        tend_op, var_op = evaluar_tendencia(op_list)
+        tend_fcf, var_fcf = evaluar_tendencia(fcf_list)
+        tend_debt, var_debt = evaluar_tendencia(debt_list)
+
+        # 1. Diagnóstico de Crecimiento
+        if tend_rev == "creciente" and tend_eps == "creciente":
+            diag_crecimiento = f"**Expansión sólida:** Las ventas crecieron un **{var_rev:+.1f}%** acumulado en la serie, alineadas con una mejora del **{var_eps:+.1f}%** en el EPS."
+        elif tend_rev == "creciente" and tend_eps == "decreciente":
+            diag_crecimiento = f"**Crecimiento bajo presión:** A pesar de escalar ingresos (+{var_rev:.1f}%), el EPS retrocedió un **{var_eps:.1f}%**, señal de mayor costo operativo o dilución."
+        elif tend_rev == "decreciente":
+            diag_crecimiento = f"**Contracción en top-line:** Los ingresos cayeron un **{var_rev:.1f}%** en el período, lo que exige atención a la demanda de sus productos o servicios."
+        else:
+            diag_crecimiento = f"**Estabilidad operativa:** Los ingresos y el EPS se mantuvieron sin cambios drásticos en los últimos ejercicios."
+
+        # 2. Diagnóstico de Márgenes
+        if tend_op == "creciente":
+            diag_margen = f"**Eficiencia al alza:** El margen operativo aumentó un **{var_op:+.1f}%**, mostrando apalancamiento operativo y capacidad de fijación de precios."
+        elif tend_op == "decreciente":
+            diag_margen = f"**Compresión de márgenes:** El margen operativo cedió un **{var_op:.1f}%**, reflejando mayor presión de costos de ventas o gastos de estructura."
+        else:
+            diag_margen = f"**Márgenes consistentes:** La rentabilidad operativa permaneció estable durante la serie."
+
+        # 3. Diagnóstico de Caja y Deuda
+        if tend_fcf == "creciente" and tend_debt != "creciente":
+            diag_caja = f"**Generación limpia de caja:** El FCF se expandió un **{var_fcf:+.1f}%** mientras la deuda se mantuvo bajo control ({var_debt:+.1f}%)."
+        elif tend_debt == "creciente":
+            diag_caja = f"**Incremento del apalancamiento:** La deuda subió un **{var_debt:+.1f}%** en la serie. Conviene monitorear la cobertura de intereses contra la caja generada."
+        else:
+            diag_caja = f"**Flujo de caja sostenible:** La generación de Free Cash Flow registra una variación de **{var_fcf:+.1f}%** en el período analizado."
+
+        # Renderizado en viñetas claras
+        st.markdown(
+            f"• **Crecimiento e Ingresos:** {diag_crecimiento}\n\n"
+            f"• **Rentabilidad y Márgenes:** {diag_margen}\n\n"
+            f"• **Caja y Estructura Financiera:** {diag_caja}"
         )
-        st.info(resumen_especifico)
 
     st.markdown("---")
 

@@ -264,7 +264,54 @@ try:
         m4.metric("Deuda Total", debt_str)
         m5.metric("Ratio Liquidez", f"{current_ratio}x" if isinstance(current_ratio, (int, float)) else "N/A")
 
+        st.markdown("---")
+        
+        # TABLA DE EVALUACIÓN MULTIANUAL
+        st.markdown("### 📋 Criterios de Evaluación Multianual Fundamental")
+        tabla_fund_data = {
+            "Bloque": [
+                "1. Crecimiento", 
+                "2. Rentabilidad", 
+                "3. Caja", 
+                "4. Deuda", 
+                "5. Acciones", 
+                "6. Ventaja competitiva", 
+                "7. Valuación"
+            ],
+            "Qué mirar": [
+                "Ventas, EPS, FCF",
+                "Márgenes, ROIC, ROE",
+                "Free Cash Flow",
+                "Deuda neta / EBITDA",
+                "Acciones en circulación",
+                "Market share, márgenes, clientes",
+                "P/E, FCF Yield, EV/EBITDA"
+            ],
+            "Qué queremos ver": [
+                "📈 Crecimiento sostenido",
+                "📈 Estables o crecientes",
+                "📈 Que se convierta en beneficio real",
+                "📉 Controlada",
+                "📉 Estables o bajando",
+                "🟢 Que se mantenga",
+                "💰 Precio razonable"
+            ]
+        }
+        st.table(pd.DataFrame(tabla_fund_data))
+
+        # ANÁLISIS RESUMIDO FUNDAMENTAL (90 PALABRAS)
+        st.markdown("### 📝 Análisis Fundamental Resumido")
+        st.info(
+            "El análisis fundamental evalúa la salud financiera y capacidad de generación de valor del activo "
+            "a largo plazo. Se busca crecimiento sostenido en ventas y EPS con FCF positivo que respalde los "
+            "beneficios. Es clave mantener márgenes estables, ROIC elevado y deuda neta/EBITDA bajo control. "
+            "La recompra de acciones aporta valor al accionista, mientras que una ventaja competitiva sólida "
+            "protege el negocio frente a la competencia. Finalmente, la valuación (P/E y FCF Yield) determina "
+            "si el activo cotiza a un precio razonable respecto a su potencial de generación de caja."
+        )
+
         if not cashflow.empty and not balance.empty:
+            st.markdown("---")
             st.markdown("**Evolución Multianual de Flujos y Recompras:**")
             cols = cashflow.columns[:3]
             try:

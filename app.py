@@ -42,7 +42,7 @@ cartera_inicial = pd.DataFrame([
     {'Ticker': 'SPY', 'Cantidad': 3.30, 'Costo_Promedio': 536.74, 'Stop_Loss': 483.07},
     {'Ticker': 'V', 'Cantidad': 0.56, 'Costo_Promedio': 268.25, 'Stop_Loss': 241.42},
     {'Ticker': 'VIST', 'Cantidad': 8.33, 'Costo_Promedio': 30.52, 'Stop_Loss': 27.47}
-])
+    )
 
 cartera_df = st.sidebar.data_editor(
     cartera_inicial, 

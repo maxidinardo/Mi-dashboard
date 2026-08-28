@@ -20,7 +20,7 @@ st.markdown("""
 st.sidebar.header("📝 Gestión de Cartera")
 
 # Cartera pre-cargada desde el CSV procesado
-cartera_inicial = pd.DataFrame([
+cartera_inicial = pd.DataFrame(
     {'Ticker': 'AAPL', 'Cantidad': 3.30, 'Costo_Promedio': 188.79, 'Stop_Loss': 169.91},
     {'Ticker': 'AMZN', 'Cantidad': 1.04, 'Costo_Promedio': 153.48, 'Stop_Loss': 138.13},
     {'Ticker': 'AXP', 'Cantidad': 1.13, 'Costo_Promedio': 206.97, 'Stop_Loss': 186.27},

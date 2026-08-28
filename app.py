@@ -86,7 +86,7 @@ def cargar_datos_completos(symbol):
 
 # --- GENERADOR DE SPARKLINE SVG PARA STREAMLIT ---
 def generar_sparkline_svg(values):
-    valid_vals = [v for v in values if isinstance(v, (int, float)) and not np.isnan(v)]
+    valid_vals = [v for v in values if isinstance(v, (int, float)) and not pd.isna(v)]
     if len(valid_vals) < 2:
         return "-"
     min_v, max_v = min(valid_vals), max(valid_vals)
@@ -95,7 +95,7 @@ def generar_sparkline_svg(values):
     pts = []
     circles = []
     for idx, val in enumerate(values):
-        if isinstance(val, (int, float)) and not np.isnan(val):
+        if isinstance(val, (int, float)) and not pd.isna(val):
             x = (idx / (len(values) - 1)) * 60 + 5
             y = 22 - ((val - min_v) / rng) * 16
             pts.append(f"{x:.1f},{y:.1f}")
@@ -378,7 +378,7 @@ try:
                 html_code += f'<tr><td>{m["name"]} <span style="color:#64748b; font-size:11px;">({m["unit"]})</span></td>'
                 
                 for idx, v in enumerate(vals):
-                    if pd.isnan(v):
+                    if pd.isna(v):
                         val_str = "N/A"
                         cell_class = "val-neutral"
                     else:
@@ -387,7 +387,7 @@ try:
                             cell_class = "val-neutral"
                         else:
                             prev = vals[idx-1]
-                            if pd.isnan(prev) or v == prev:
+                            if pd.isna(prev) or v == prev:
                                 cell_class = "val-neutral"
                             else:
                                 is_better = (v < prev) if is_inv else (v > prev)
@@ -407,10 +407,10 @@ try:
         pe_ratio = info.get('trailingPE', 'N/A')
         fcf_yield = f"{(info.get('freeCashflow', 0) / info.get('marketCap', 1))*100:.2f}%" if info.get('marketCap') else "N/A"
         
-        rev_last = f"${rev_list[-1]:.2f}B" if not pd.isnan(rev_list[-1]) else "N/A"
-        rev_first = f"${rev_list[0]:.2f}B" if not pd.isnan(rev_list[0]) else "N/A"
-        fcf_last = f"${fcf_list[-1]:.2f}B" if not pd.isnan(fcf_list[-1]) else "N/A"
-        debt_last = f"${debt_list[-1]:.2f}B" if not pd.isnan(debt_list[-1]) else "N/A"
+        rev_last = f"${rev_list[-1]:.2f}B" if not pd.isna(rev_list[-1]) else "N/A"
+        rev_first = f"${rev_list[0]:.2f}B" if not pd.isna(rev_list[0]) else "N/A"
+        fcf_last = f"${fcf_list[-1]:.2f}B" if not pd.isna(fcf_list[-1]) else "N/A"
+        debt_last = f"${debt_list[-1]:.2f}B" if not pd.isna(debt_list[-1]) else "N/A"
 
         resumen_especifico = (
             f"El desempeño multianual de **{ticker_sel}** refleja la capacidad del activo para sostener su ventaja "

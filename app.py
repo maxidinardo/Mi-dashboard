@@ -143,8 +143,8 @@ try:
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("**💡 Sugerencias Técnicas de Stop Loss:**")
-    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
-    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
+    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `\\${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
+    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `\\${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
 
     st.title(f"⚡ Panel {ticker_sel}")
 
@@ -214,10 +214,11 @@ try:
         else "El activo ha penetrado niveles clave de retroceso, lo que sugiere cautela antes de abrir nuevas posiciones."
     )
 
+    # CORRECCIÓN DE FORMATO: Se usa '\$' para evitar que Streamlit lo procese como fórmula LaTeX
     st.info(
         f"🔍 **Diagnóstico Táctico Estructural:**\n\n"
-        f"• **Situación de Fibonacci:** El precio cotiza entre el soporte de **${soporte_proximo:.2f}** y la resistencia de **${resistencia_proxima:.2f}**.\n\n"
-        f"• **Techo Clave:** Un quiebre confirmado del máximo reciente en **${max_fib:.2f}** proyecta un objetivo por **Extensión de Fibonacci** hacia **${ext_1618:.2f}** (+{pct_extension:.1f}%).\n\n"
+        f"• **Situación de Fibonacci:** El precio cotiza entre el soporte de **\\${soporte_proximo:.2f}** y la resistencia de **\\${resistencia_proxima:.2f}**.\n\n"
+        f"• **Techo Clave:** Un quiebre confirmado del máximo reciente en **\\${max_fib:.2f}** proyecta un objetivo por **Extensión de Fibonacci** hacia **\\${ext_1618:.2f}** (+{pct_extension:.1f}%).\n\n"
         f"• **Estructura Chartista:** {estado_chartista}"
     )
 
@@ -281,12 +282,10 @@ try:
     else:
         st.subheader(f"🏢 Matriz Fundamental Avanzada ({ticker_sel})")
         
-        # Extracción de columnas de los últimos 3 años disponibles
         cols_fin = list(financials.columns[:3]) if not financials.empty else []
         years = [c.strftime('%Y') for c in reversed(cols_fin)] if len(cols_fin) > 0 else ["Año-2", "Año-1", "Anterior"]
         headers_years = years + ["TTM (Actual)"]
 
-        # Funciones auxiliares para extracción numérica pura
         def get_raw_series(df_source, row_label, scale=1e9):
             if df_source.empty or row_label not in df_source.index:
                 return [np.nan] * len(cols_fin)
@@ -296,14 +295,12 @@ try:
                 res.append(float(val) / scale if pd.notna(val) else np.nan)
             return res
 
-        # Extracción de Datos en Listas [Año-2, Año-1, Año Pasado, TTM]
         rev_list = get_raw_series(financials, 'Total Revenue', 1e9) + [info.get('totalRevenue', np.nan) / 1e9 if info.get('totalRevenue') else np.nan]
         eps_list = get_raw_series(financials, 'Basic EPS', 1) + [info.get('trailingEps', np.nan)]
         fcf_list = get_raw_series(cashflow, 'Free Cash Flow', 1e9) + [info.get('freeCashflow', np.nan) / 1e9 if info.get('freeCashflow') else np.nan]
         ebitda_list = get_raw_series(financials, 'EBITDA', 1e9) + [info.get('ebitda', np.nan) / 1e9 if info.get('ebitda') else np.nan]
         debt_list = get_raw_series(balance, 'Total Debt', 1e9) + [info.get('totalDebt', np.nan) / 1e9 if info.get('totalDebt') else np.nan]
 
-        # Márgenes calculados
         gross_list, op_list = [], []
         for col in reversed(cols_fin):
             if not financials.empty and 'Gross Profit' in financials.index and 'Total Revenue' in financials.index:
@@ -353,7 +350,6 @@ try:
             }
         ]
 
-        # RENDERIZADO DE MATRIZ HTML DINÁMICA
         html_code = f"""
         <table class="fund-table">
             <thead>
@@ -401,16 +397,15 @@ try:
         html_code += "</tbody></table>"
         st.markdown(html_code, unsafe_allow_html=True)
 
-        # RESUMEN FUNDAMENTAL ESPECÍFICO
         st.markdown(f"### 📝 Análisis Sintético de los Últimos 3 Años ({ticker_sel})")
         
         pe_ratio = info.get('trailingPE', 'N/A')
         fcf_yield = f"{(info.get('freeCashflow', 0) / info.get('marketCap', 1))*100:.2f}%" if info.get('marketCap') else "N/A"
         
-        rev_last = f"${rev_list[-1]:.2f}B" if not pd.isna(rev_list[-1]) else "N/A"
-        rev_first = f"${rev_list[0]:.2f}B" if not pd.isna(rev_list[0]) else "N/A"
-        fcf_last = f"${fcf_list[-1]:.2f}B" if not pd.isna(fcf_list[-1]) else "N/A"
-        debt_last = f"${debt_list[-1]:.2f}B" if not pd.isna(debt_list[-1]) else "N/A"
+        rev_last = f"\\${rev_list[-1]:.2f}B" if not pd.isna(rev_list[-1]) else "N/A"
+        rev_first = f"\\${rev_list[0]:.2f}B" if not pd.isna(rev_list[0]) else "N/A"
+        fcf_last = f"\\${fcf_list[-1]:.2f}B" if not pd.isna(fcf_list[-1]) else "N/A"
+        debt_last = f"\\${debt_list[-1]:.2f}B" if not pd.isna(debt_list[-1]) else "N/A"
 
         resumen_especifico = (
             f"El desempeño multianual de **{ticker_sel}** refleja la capacidad del activo para sostener su ventaja "

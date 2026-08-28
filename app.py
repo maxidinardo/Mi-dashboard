@@ -3,9 +3,8 @@ import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
 
-st.set_page_config(page_title="Terminal Pro Multiactivo", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Terminal Financiero Pro", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -14,15 +13,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("💼 Terminal de Inversión Avanzado & Semáforo Modular")
-
 # --- SIDEBAR: CARTERA Y CONFIGURACIÓN ---
 st.sidebar.header("📝 Gestión de Cartera")
 
 cartera_inicial = pd.DataFrame([
+    {"Ticker": "AAPL", "Cantidad": 8.0, "Costo_Promedio": 180.00, "Stop_Loss": 165.00},
     {"Ticker": "QTUM", "Cantidad": 10.0, "Costo_Promedio": 148.78, "Stop_Loss": 130.00},
-    {"Ticker": "NVDA", "Cantidad": 5.0, "Costo_Promedio": 120.50, "Stop_Loss": 105.00},
-    {"Ticker": "AAPL", "Cantidad": 8.0, "Costo_Promedio": 180.00, "Stop_Loss": 165.00}
+    {"Ticker": "NVDA", "Cantidad": 5.0, "Costo_Promedio": 120.50, "Stop_Loss": 105.00}
 ])
 
 cartera_df = st.sidebar.data_editor(
@@ -41,18 +38,21 @@ st.sidebar.markdown("---")
 lista_tickers = cartera_df["Ticker"].dropna().unique().tolist()
 ticker_sel = st.sidebar.selectbox("🎯 Selecciona Activo:", lista_tickers)
 
-# --- DESCARGA DE DATOS Y BÚSQUEDA DE SPY ---
+# --- TÍTULO DINÁMICO CORREGIDO ---
+st.title(f"⚡ Panel {ticker_sel}")
+
+# --- DESCARGA DE DATOS ---
 @st.cache_data(ttl=1800)
 def cargar_datos_completos(symbol):
     tk = yf.Ticker(symbol)
     hist_w = tk.history(period="3y", interval="1wk")
-    hist_d = tk.history(period="1y", interval="1d")
+    hist_d = tk.history(period="2y", interval="1d")
     info = tk.info
     financials = tk.financials
-    
-    # Datos de SPY para comparación
+    cashflow = tk.cashflow
+    balance = tk.balancesheet
     spy = yf.Ticker("SPY").history(period="1y", interval="1d")['Close']
-    return hist_w, hist_d, info, financials, spy
+    return hist_w, hist_d, info, financials, cashflow, balance, spy
 
 try:
     posicion = cartera_df[cartera_df["Ticker"] == ticker_sel].iloc[0]
@@ -60,7 +60,7 @@ try:
     costo_prom = posicion["Costo_Promedio"]
     stop_loss_val = posicion["Stop_Loss"]
 
-    df_w, df_d, info, financials, spy_close = cargar_datos_completos(ticker_sel)
+    df_w, df_d, info, financials, cashflow, balance, spy_close = cargar_datos_completos(ticker_sel)
     precio_actual = df_d["Close"].iloc[-1]
     es_etf = info.get('quoteType', '').upper() == 'ETF'
 
@@ -108,11 +108,10 @@ try:
 
     st.markdown("---")
 
-    # --- SECCIÓN 1: SEMÁFORO TÁCTICO MODULAR ---
+    # --- SEMÁFORO TÁCTICO MODULAR ---
     st.subheader(f"🚥 Semáforo Táctico Modular: {ticker_sel}")
     s1, s2, s3, s4 = st.columns(4)
 
-    # 1. Tendencia de Precio
     with s1:
         st.markdown("**1. Tendencia de Precio**")
         if precio_actual >= sma50:
@@ -122,43 +121,39 @@ try:
         else:
             st.error("🔴 **BAJISTA**\nPrecio por debajo de SMA 200.")
 
-    # 2. Estado de Divergencia
     with s2:
         st.markdown("**2. Divergencias (RSI)**")
         if div_alcista:
-            st.info("🟢 **DIVERGENCIA ALCISTA**\nPoderoso patrón de rebote.")
+            st.info("🟢 **DIVERGENCIA ALCISTA**\nPatrón de rebote detectado.")
         elif div_bajista:
-            st.warning("⚠️ **DIVERGENCIA BAJISTA**\nPerdiendo fuerza compradora.")
+            st.warning("⚠️ **DIVERGENCIA BAJISTA**\nPérdida de impulso comprador.")
         else:
             st.success("⚪ **SIN DIVERGENCIA**\nEstructura técnica armónica.")
 
-    # 3. Estado de Stop Loss
     with s3:
         st.markdown("**3. Distancia a Stop Loss**")
         dist_stop = ((precio_actual - stop_loss_val) / precio_actual) * 100
         if precio_actual <= stop_loss_val:
-            st.error("🔴 **STOP LOSS VIOLADO**\nEl precio cayó por debajo del límite.")
+            st.error("🔴 **STOP LOSS VIOLADO**\nPrecio por debajo del límite.")
         elif dist_stop < 5:
-            st.warning(f"🟡 **ZONA CRÍTICA**\nA solo {dist_stop:.1f}% del Stop Loss.")
+            st.warning(f"🟡 **ZONA CRÍTICA**\nA {dist_stop:.1f}% del Stop.")
         else:
-            st.success(f"🟢 **SEGURO**\nA {dist_stop:.1f}% del nivel de corte.")
+            st.success(f"🟢 **SEGURO**\nA {dist_stop:.1f}% del corte.")
 
-    # 4. Diagnóstico Integral
     with s4:
         st.markdown("**4. Estrategia Sugerida**")
         if precio_actual >= sma50 and not div_bajista:
-            st.success("🟢 **MANTENER / DCA**\nTendencia sana para acumulación.")
+            st.success("🟢 **MANTENER / DCA**\nTendencia sana para acumular.")
         elif div_alcista or (precio_actual >= sma200 and precio_actual < sma50):
-            st.warning("🟡 **COMPRA TÁCTICA**\nBuscar entradas cerca de soportes.")
+            st.warning("🟡 **COMPRA TÁCTICA**\nBuscar entradas en soportes.")
         else:
-            st.error("🔴 **PAUSAR ENTRADAS**\nEsperar estabilización de mercado.")
+            st.error("🔴 **PAUSAR ENTRADAS**\nEsperar estabilización.")
 
     st.markdown("---")
 
-    # --- SECCIÓN 2: MÓDULOS ESPECÍFICOS (ETF vs EMPRESA) ---
+    # --- MÓDULO FUNDAMENTAL AVANZADO O ETF ---
     if es_etf:
-        st.subheader("⚖️ Módulo ETF: Comparativa de Fuerza Relativa vs S&P 500 (SPY)")
-        # Rendimiento a 1 año
+        st.subheader("⚖️ Módulo ETF: Comparativa vs S&P 500 (SPY)")
         rend_ticker = ((df_d['Close'].iloc[-1] - df_d['Close'].iloc[0]) / df_d['Close'].iloc[0]) * 100
         rend_spy = ((spy_close.iloc[-1] - spy_close.iloc[0]) / spy_close.iloc[0]) * 100
         alpha = rend_ticker - rend_spy
@@ -167,65 +162,76 @@ try:
         e1.metric(f"Rendimiento 1A ({ticker_sel})", f"{rend_ticker:.2f}%")
         e2.metric("Rendimiento 1A (SPY)", f"{rend_spy:.2f}%")
         e3.metric("Alpha (Vs SPY)", f"{alpha:+.2f}%", delta="Alfa Positivo" if alpha > 0 else "Alfa Negativo")
-
-        if alpha > 0:
-            st.success(f"🟢 **Superando al Mercado:** {ticker_sel} demuestra mayor fuerza relativa que el S&P 500 (+{alpha:.2f}%).")
-        else:
-            st.warning(f"🟡 **Por debajo del Mercado:** {ticker_sel} rinde menos que el S&P 500 ({alpha:.2f}%).")
-
     else:
-        st.subheader("🏢 Módulo Empresa: Análisis Fundamental Multianual (Últimos 3 Balances)")
-        if not financials.empty and financials.shape[1] >= 3:
-            cols = financials.columns[:3]
+        st.subheader("🏢 Módulo Fundamental Exhaustivo (EEFF & Ratios)")
+        
+        # Extracción de métricas clave del objeto info
+        eps = info.get('trailingEps', 'N/A')
+        fcf = info.get('freeCashflow', None)
+        fcf_str = f"${fcf / 1e9:.2f}B" if fcf else "N/A"
+        revenue = info.get('totalRevenue', None)
+        rev_str = f"${revenue / 1e9:.2f}B" if revenue else "N/A"
+        total_debt = info.get('totalDebt', None)
+        debt_str = f"${total_debt / 1e9:.2f}B" if total_debt else "N/A"
+        current_ratio = info.get('currentRatio', 'N/A')
+        
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("EPS (TTM)", f"${eps}" if isinstance(eps, (int, float)) else "N/A")
+        m2.metric("Ingresos Totales", rev_str)
+        m3.metric("Free Cash Flow (FCF)", fcf_str)
+        m4.metric("Deuda Total", debt_str)
+        m5.metric("Ratio Liquidez (Current)", f"{current_ratio}x" if isinstance(current_ratio, (int, float)) else "N/A")
+
+        # Tabla de Balances Anuales para recompras e ingresos
+        if not cashflow.empty and not balance.empty:
+            st.markdown("**Evolución Multianual de Flujos y Recompras (3 Años):**")
+            cols = cashflow.columns[:3]
             try:
-                # Extracción de Métricas
-                rev = financials.loc['Total Revenue', cols] / 1e9
-                net_inc = financials.loc['Net Income', cols] / 1e9
+                years = [c.strftime('%Y') for c in cols]
+                # Búsqueda de recompras de acciones (Repurchase of Capital Stock)
+                recompras = []
+                for col in cols:
+                    val = cashflow.loc['Repurchase Of Capital Stock', col] if 'Repurchase Of Capital Stock' in cashflow.index else 0
+                    recompras.append(abs(val) / 1e9 if pd.notna(val) else 0)
                 
-                f_df = pd.DataFrame({
-                    "Año": [c.strftime('%Y') for c in cols],
-                    "Ingresos (B USD)": rev.values,
-                    "Beneficio Neto (B USD)": net_inc.values
+                df_fund = pd.DataFrame({
+                    "Año": years,
+                    "Recompras Acciones (B USD)": recompras
                 }).sort_values("Año")
 
-                # Tendencia de Ingresos
-                rev_growth = ((f_df["Ingresos (B USD)"].iloc[-1] - f_df["Ingresos (B USD)"].iloc[0]) / f_df["Ingresos (B USD)"].iloc[0]) * 100
-
-                m1, m2, m3 = st.columns(3)
-                m1.dataframe(f_df, hide_index=True, use_container_width=True)
-                m2.metric("Crecimiento Ingresos (3A)", f"{rev_growth:+.1f}%")
-                
-                with m3:
-                    if rev_growth > 15:
-                        st.success("🟢 **FUNDAMENTALES SÓLIDOS**\nCrecimiento orgánico de ingresos constante.")
-                    elif rev_growth > 0:
-                        st.warning("🟡 **CRECIMIENTO MODERADO**\nIngresos estables pero sin aceleración.")
-                    else:
-                        st.error("🔴 **DETERIORO FUNDAMENTAL**\nCaída en ingresos los últimos 3 años.")
+                st.dataframe(df_fund, hide_index=True, use_container_width=True)
             except Exception:
-                st.info("Datos fundamentales detallados no disponibles públicamente para este activo.")
-        else:
-            st.info("Información de balances anuales insuficientes en la base de datos para mostrar la tendencia de 3 años.")
+                st.caption("Detalle específico de recompras en balances no disponible para este activo.")
 
     st.markdown("---")
 
-    # --- SECCIÓN 3: GRÁFICO INTERACTIVO COMPLETO ---
-    st.subheader("📈 Gráfico de Velas, Medias Móviles, RSI y MACD")
+    # --- GRÁFICO INTERACTIVO CON BARRA DE DESPLAZAMIENTO LATERAL ---
+    st.subheader("📈 Gráfico de Velas con Barra de Desplazamiento Lateral")
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.6, 0.2, 0.2])
 
+    # Velas y Medias
     fig.add_trace(go.Candlestick(x=df_d.index, open=df_d['Open'], high=df_d['High'], low=df_d['Low'], close=df_d['Close'], name="Precio"), row=1, col=1)
     fig.add_trace(go.Scatter(x=df_d.index, y=df_d['SMA_50'], line=dict(color='#FF9900', width=1.5), name="SMA 50"), row=1, col=1)
     fig.add_trace(go.Scatter(x=df_d.index, y=df_d['SMA_200'], line=dict(color='#0066FF', width=1.5), name="SMA 200"), row=1, col=1)
 
+    # RSI
     fig.add_trace(go.Scatter(x=df_w.index, y=df_w['RSI'], line=dict(color='#AB63FA', width=1.5), name="RSI"), row=2, col=1)
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
 
+    # MACD
     fig.add_trace(go.Scatter(x=df_w.index, y=df_w['MACD'], line=dict(color='#00FFCC', width=1), name="MACD"), row=3, col=1)
     fig.add_trace(go.Scatter(x=df_w.index, y=df_w['Signal'], line=dict(color='#FF0055', width=1), name="Signal"), row=3, col=1)
 
-    fig.update_layout(template="plotly_dark", height=580, xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=10, b=10))
+    # Habilitar barra de desplazamiento horizontal (Range Slider)
+    fig.update_layout(
+        template="plotly_dark",
+        height=650,
+        xaxis_rangeslider_visible=True,  # Barra de desplazamiento activada
+        xaxis_rangeslider_thickness=0.05,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 except Exception as e:
-    st.error(f"Asegúrate de ingresar un ticker válido. (Detalle: {e})")
+    st.error(f"Error al cargar el activo seleccionado. (Detalle: {e})")

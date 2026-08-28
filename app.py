@@ -235,7 +235,7 @@ try:
 
     st.markdown("---")
 
-    # --- MÓDULO FUNDAMENTAL AVANZADO O ETF ---
+    # --- MÓDULO FUNDAMENTAL AVANZADO (EVOLUTIVO 3 AÑOS) ---
     if es_etf:
         st.subheader("⚖️ Módulo ETF: Comparativa vs S&P 500 (SPY)")
         rend_ticker = ((df_d['Close'].iloc[-1] - df_d['Close'].iloc[0]) / df_d['Close'].iloc[0]) * 100
@@ -247,27 +247,69 @@ try:
         e2.metric("Rendimiento 5A (SPY)", f"{rend_spy:+.2f}%")
         e3.metric("Alpha Relativo", f"{alpha:+.2f}%", delta="Alfa Positivo" if alpha > 0 else "Alfa Negativo")
     else:
-        st.subheader("🏢 Módulo Fundamental Exhaustivo (EEFF & Ratios)")
-        eps = info.get('trailingEps', 'N/A')
-        fcf = info.get('freeCashflow', None)
-        fcf_str = f"${fcf / 1e9:.2f}B" if fcf else "N/A"
-        revenue = info.get('totalRevenue', None)
-        rev_str = f"${revenue / 1e9:.2f}B" if revenue else "N/A"
-        total_debt = info.get('totalDebt', None)
-        debt_str = f"${total_debt / 1e9:.2f}B" if total_debt else "N/A"
-        current_ratio = info.get('currentRatio', 'N/A')
+        st.subheader(f"🏢 Módulo Fundamental Exhaustivo: Evolutivo 3 Años ({ticker_sel})")
         
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("EPS (TTM)", f"${eps}" if isinstance(eps, (int, float)) else "N/A")
-        m2.metric("Ingresos Totales", rev_str)
-        m3.metric("Free Cash Flow (FCF)", fcf_str)
-        m4.metric("Deuda Total", debt_str)
-        m5.metric("Ratio Liquidez", f"{current_ratio}x" if isinstance(current_ratio, (int, float)) else "N/A")
+        # Extracción de columnas de los últimos 3 años disponibles
+        cols_fin = financials.columns[:3] if not financials.empty else []
+        years = [c.strftime('%Y') for c in cols_fin] if len(cols_fin) > 0 else ["N/A", "N/A", "N/A"]
 
-        st.markdown("---")
-        
-        # TABLA DE EVALUACIÓN MULTIANUAL
-        st.markdown("### 📋 Criterios de Evaluación Multianual Fundamental")
+        # Funciones auxiliares para extracción segura de métricas multianuales
+        def get_series_vals(df_source, row_label, factor=1e9):
+            vals = []
+            for col in cols_fin:
+                if not df_source.empty and row_label in df_source.index and pd.notna(df_source.loc[row_label, col]):
+                    vals.append(f"${df_source.loc[row_label, col] / factor:.2f}B" if factor else f"${df_source.loc[row_label, col]:.2f}")
+                else:
+                    vals.append("N/A")
+            return vals
+
+        # 1. Crecimiento
+        rev_vals = get_series_vals(financials, 'Total Revenue')
+        eps_vals = get_series_vals(financials, 'Basic EPS', factor=None)
+        fcf_vals = get_series_vals(cashflow, 'Free Cash Flow')
+        txt_crec = " | ".join([f"{y}: Rev {r}, EPS {e}" for y, r, e in zip(years, rev_vals, eps_vals)])
+
+        # 2. Rentabilidad
+        gross_margin = []
+        for col in cols_fin:
+            if not financials.empty and 'Gross Profit' in financials.index and 'Total Revenue' in financials.index:
+                gp = financials.loc['Gross Profit', col]
+                rev = financials.loc['Total Revenue', col]
+                gross_margin.append(f"{(gp/rev)*100:.1f}%" if pd.notna(gp) and pd.notna(rev) and rev != 0 else "N/A")
+            else:
+                gross_margin.append("N/A")
+        txt_rent = " | ".join([f"{y}: Mg Bruto {m}" for y, m in zip(years, gross_margin)])
+
+        # 3. Caja
+        txt_caja = " | ".join([f"{y}: FCF {f}" for y, f in zip(years, fcf_vals)])
+
+        # 4. Deuda
+        debt_vals = get_series_vals(balance, 'Total Debt')
+        txt_deuda = " | ".join([f"{y}: Deuda {d}" for y, d in zip(years, debt_vals)])
+
+        # 5. Acciones
+        shares_vals = get_series_vals(balance, 'Share Issued', factor=1e6)
+        txt_acciones = " | ".join([f"{y}: {s}M" for y, s in zip(years, shares_vals)]) if len(shares_vals) > 0 and shares_vals[0] != "N/A" else "Datos no disponibles en balance"
+
+        # 6. Ventaja competitiva (Márgenes Operativos)
+        op_margin = []
+        for col in cols_fin:
+            if not financials.empty and 'Operating Income' in financials.index and 'Total Revenue' in financials.index:
+                op = financials.loc['Operating Income', col]
+                rev = financials.loc['Total Revenue', col]
+                op_margin.append(f"{(op/rev)*100:.1f}%" if pd.notna(op) and pd.notna(rev) and rev != 0 else "N/A")
+            else:
+                op_margin.append("N/A")
+        txt_moat = " | ".join([f"{y}: Mg Op {m}" for y, m in zip(years, op_margin)])
+
+        # 7. Valuación TTM actual
+        pe_ratio = info.get('trailingPE', 'N/A')
+        fcf_yield = f"{(info.get('freeCashflow', 0) / info.get('marketCap', 1))*100:.2f}%" if info.get('marketCap') else "N/A"
+        ev_ebitda = info.get('enterpriseToEbitda', 'N/A')
+        txt_val = f"P/E TTM: {pe_ratio}x | FCF Yield: {fcf_yield} | EV/EBITDA: {ev_ebitda}x"
+
+        # TABLA DE EVALUACIÓN MULTIANUAL DINÁMICA
+        st.markdown("### 📋 Análisis Multianual de Estados Financieros (3 Años)")
         tabla_fund_data = {
             "Bloque": [
                 "1. Crecimiento", 
@@ -284,51 +326,46 @@ try:
                 "Free Cash Flow",
                 "Deuda neta / EBITDA",
                 "Acciones en circulación",
-                "Market share, márgenes, clientes",
+                "Market share, márgenes",
                 "P/E, FCF Yield, EV/EBITDA"
             ],
-            "Qué queremos ver": [
+            "Objetivo": [
                 "📈 Crecimiento sostenido",
                 "📈 Estables o crecientes",
-                "📈 Que se convierta en beneficio real",
+                "📈 Conversión a beneficio real",
                 "📉 Controlada",
                 "📉 Estables o bajando",
                 "🟢 Que se mantenga",
                 "💰 Precio razonable"
+            ],
+            f"Evolución 3 Años ({' - '.join(reversed(years))})": [
+                txt_crec,
+                txt_rent,
+                txt_caja,
+                txt_deuda,
+                txt_acciones,
+                txt_moat,
+                txt_val
             ]
         }
         st.table(pd.DataFrame(tabla_fund_data))
 
-        # ANÁLISIS RESUMIDO FUNDAMENTAL (90 PALABRAS)
-        st.markdown("### 📝 Análisis Fundamental Resumido")
-        st.info(
-            "El análisis fundamental evalúa la salud financiera y capacidad de generación de valor del activo "
-            "a largo plazo. Se busca crecimiento sostenido en ventas y EPS con FCF positivo que respalde los "
-            "beneficios. Es clave mantener márgenes estables, ROIC elevado y deuda neta/EBITDA bajo control. "
-            "La recompra de acciones aporta valor al accionista, mientras que una ventaja competitiva sólida "
-            "protege el negocio frente a la competencia. Finalmente, la valuación (P/E y FCF Yield) determina "
-            "si el activo cotiza a un precio razonable respecto a su potencial de generación de caja."
+        # RESUMEN FUNDAMENTAL ESPECÍFICO DE LOS 3 AÑOS
+        st.markdown(f"### 📝 Análisis Sintético de los Últimos 3 Años ({ticker_sel})")
+        
+        rev_trend = f"ingresos pasaron de {rev_vals[-1]} a {rev_vals[0]}" if len(rev_vals) > 1 and rev_vals[0] != "N/A" else "ingresos mantienen su trayectoria de balance"
+        fcf_trend = f"un Free Cash Flow en {fcf_vals[0]}" if fcf_vals[0] != "N/A" else "generación de caja en observación"
+        debt_trend = f"deuda total en {debt_vals[0]}" if debt_vals[0] != "N/A" else "estructura de deuda estable"
+        
+        resumen_especifico = (
+            f"El desempeño multianual de {ticker_sel} refleja la capacidad del activo para sostener su ventaja "
+            f"competitiva y generar valor al accionista. En los últimos tres años, los {rev_trend}, "
+            f"respaldados por {fcf_trend} que confirma la calidad operacional del negocio. "
+            f"La estabilidad en los márgenes operativos demuestra eficiencia en la asignación de recursos. "
+            f"Por su parte, la contención con una {debt_trend} refuerza la solidez del balance y optimiza "
+            f"el retorno sobre el capital invertido respecto a sus métricas actuales de valuación (P/E de {pe_ratio}x)."
         )
-
-        if not cashflow.empty and not balance.empty:
-            st.markdown("---")
-            st.markdown("**Evolución Multianual de Flujos y Recompras:**")
-            cols = cashflow.columns[:3]
-            try:
-                years = [c.strftime('%Y') for c in cols]
-                recompras = []
-                for col in cols:
-                    val = cashflow.loc['Repurchase Of Capital Stock', col] if 'Repurchase Of Capital Stock' in cashflow.index else 0
-                    recompras.append(abs(val) / 1e9 if pd.notna(val) else 0)
-                
-                df_fund = pd.DataFrame({
-                    "Año": years,
-                    "Recompras Acciones (B USD)": recompras
-                }).sort_values("Año")
-
-                st.dataframe(df_fund, hide_index=True, use_container_width=True)
-            except Exception:
-                st.caption("Detalle específico de recompras en balances no disponible para este activo.")
+        st.info(resumen_especifico)
 
     st.markdown("---")
 

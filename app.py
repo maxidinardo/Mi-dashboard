@@ -19,7 +19,6 @@ st.markdown("""
 # --- SIDEBAR: CARTERA IMPORTADA DE DIVTRACKER ---
 st.sidebar.header("📝 Gestión de Cartera")
 
-# Cartera pre-cargada desde el CSV procesado
 cartera_inicial = pd.DataFrame([
     {'Ticker': 'AAPL', 'Cantidad': 3.30, 'Costo_Promedio': 188.79, 'Stop_Loss': 169.91},
     {'Ticker': 'AMZN', 'Cantidad': 1.04, 'Costo_Promedio': 153.48, 'Stop_Loss': 138.13},
@@ -83,7 +82,7 @@ try:
     precio_actual = df_d["Close"].iloc[-1]
     es_etf = info.get('quoteType', '').upper() == 'ETF'
 
-    # --- FIBONACCI (Últimos 252 días de rueda / 1 Año) ---
+    # --- FIBONACCI ---
     df_recent = df_d.tail(252)
     max_fib = df_recent['High'].max()
     min_fib = df_recent['Low'].min()
@@ -112,8 +111,8 @@ try:
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("**💡 Sugerencias Técnicas de Stop Loss:**")
-    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `${soporte_tecnico:.2f}` *(-{dist_soporte_pct:.2f}%)*")
-    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `${stop_atr:.2f}` *(-{dist_atr_pct:.2f}%)*")
+    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
+    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
 
     st.title(f"⚡ Panel {ticker_sel}")
 
@@ -123,7 +122,7 @@ try:
     sma50 = df_d['SMA_50'].iloc[-1]
     sma200 = df_d['SMA_200'].iloc[-1]
 
-    # RSI (14 Semanal)
+    # RSI
     delta_w = df_w['Close'].diff()
     gain = (delta_w.where(delta_w > 0, 0)).rolling(14).mean()
     loss = (-delta_w.where(delta_w < 0, 0)).rolling(14).mean()
@@ -156,8 +155,8 @@ try:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Precio Actual", f"${precio_actual:.2f}")
     c2.metric("Rendimiento Posición", f"{pnl_pct:+.2f}%", delta=f"${pnl_usd:,.2f}")
-    c3.metric("Distancia a Stop Configurado", f"-{dist_stop_config_pct:.2f}%", delta=f"${stop_loss_val:.2f} Nivel Stop", delta_color="normal")
-    c4.metric("Distancia a Soporte Técnico", f"-{dist_soporte_pct:.2f}%", delta=f"${soporte_tecnico:.2f} Mín 20D", delta_color="normal")
+    c3.metric("Distancia a Stop Configurado", f"{dist_stop_config_pct:+.2f}%", delta=f"${stop_loss_val:.2f} Nivel Stop", delta_color="normal")
+    c4.metric("Distancia a Soporte Técnico", f"{dist_soporte_pct:+.2f}%", delta=f"${soporte_tecnico:.2f} Mín 20D", delta_color="normal")
 
     st.markdown("---")
 
@@ -176,7 +175,6 @@ try:
     f2.metric("🛡️ Próximo Soporte Fibonacci", f"${soporte_proximo:.2f}", delta=f"-{dist_sop_pct:.2f}% distancia", delta_color="normal")
     f3.metric("📏 Zona Dorada Fib (61.8%)", f"${fib_618:.2f}", delta="Punto crítico de recarga" if precio_actual >= fib_618 else "Bajo zona dorada")
 
-    # Diagnóstico corregido (Formato limpio sin asteriscos sueltos)
     pct_extension = ((ext_1618 - precio_actual) / precio_actual) * 100
     estado_chartista = (
         "El activo muestra fortaleza alcista manteniéndose sobre la Zona Dorada (61.8%)." 
@@ -222,9 +220,9 @@ try:
         if precio_actual <= stop_loss_val:
             st.error(f"🔴 **VIOLADO**\nBajo el límite por {abs(dist_stop_config_pct):.2f}%.")
         elif dist_stop_config_pct < 5.0:
-            st.warning(f"🟡 **ZONA CRÍTICA**\nA -{dist_stop_config_pct:.2f}% del Stop.")
+            st.warning(f"🟡 **ZONA CRÍTICA**\nA {dist_stop_config_pct:+.2f}% del Stop.")
         else:
-            st.success(f"🟢 **SEGURO**\nMargen de -{dist_stop_config_pct:.2f}%.")
+            st.success(f"🟢 **SEGURO**\nMargen de {dist_stop_config_pct:+.2f}%.")
 
     with s4:
         st.markdown("**4. Estrategia Sugerida**")
@@ -287,7 +285,7 @@ try:
 
     st.markdown("---")
 
-    # --- GRÁFICO DE VELAS (5 AÑOS) CON FIBONACCI Y RANGESLIDER ---
+    # --- GRÁFICO DE VELAS (5 AÑOS) CON FIBONACCI ---
     st.subheader("📈 Gráfico de Velas (5 Años) con Estructura de Fibonacci")
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.6, 0.2, 0.2])
 

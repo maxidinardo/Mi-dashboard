@@ -413,7 +413,7 @@ try:
                     else:
                         val_str = f"{v:.2f}"
                         if idx == 0:
-                        cell_class = "val-neutral"
+                           cell_class = "val-neutral"
                         else:
                             prev = vals[idx-1]
                             if pd.isna(prev) or v == prev:

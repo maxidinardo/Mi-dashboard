@@ -135,6 +135,7 @@ def generar_sparkline_svg(values):
     polyline = f'<polyline fill="none" stroke="#38bdf8" stroke-width="2" points="{" ".join(pts)}" />'
     return f'<svg width="70" height="26" viewBox="0 0 70 26">{polyline}{"".join(circles)}</svg>'
 
+# --- EJECUCIÓN PRINCIPAL DE LA APLICACIÓN ---
 try:
     posicion = cartera_df[cartera_df["Ticker"] == ticker_sel].iloc[0]
     cant = posicion["Cantidad"]
@@ -174,8 +175,8 @@ try:
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("**💡 Sugerencias Técnicas de Stop Loss:**")
-    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `\\${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
-    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `\\${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
+    st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
+    st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
 
     st.title(f"⚡ Panel {ticker_sel}")
 
@@ -247,8 +248,8 @@ try:
 
     st.info(
         f"🔍 **Diagnóstico Táctico Estructural:**\n\n"
-        f"• **Situación de Fibonacci:** El precio cotiza entre el soporte de **\\${soporte_proximo:.2f}** y la resistencia de **\\${resistencia_proxima:.2f}**.\n\n"
-        f"• **Techo Clave:** Un quiebre confirmado del máximo reciente en **\\${max_fib:.2f}** proyecta un objetivo por **Extensión de Fibonacci** hacia **\\${ext_1618:.2f}** (+{pct_extension:.1f}%).\n\n"
+        f"• **Situación de Fibonacci:** El precio cotiza entre el soporte de **${soporte_proximo:.2f}** y la resistencia de **${resistencia_proxima:.2f}**.\n\n"
+        f"• **Techo Clave:** Un quiebre confirmado del máximo reciente en **${max_fib:.2f}** proyecta un objetivo por **Extensión de Fibonacci** hacia **${ext_1618:.2f}** (+{pct_extension:.1f}%).\n\n"
         f"• **Estructura Chartista:** {estado_chartista}"
     )
 
@@ -412,11 +413,4 @@ try:
                         if idx == 0:
                             cell_class = "val-neutral"
                         else:
-                            prev = vals[idx-1]
-      else:
-        st.info("No se encontraron noticias recientes disponibles para este activo.")
-
-# --- CIERRE DEL BLOQUE TRY ---
-except Exception as e:
-    st.error(f"Error al cargar el activo seleccionado: {e}")
-
+              

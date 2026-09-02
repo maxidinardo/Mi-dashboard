@@ -413,3 +413,4 @@ try:
                     else:
                         val_str = f"{v:.2f}"
                         if idx == 0:
+                        pass

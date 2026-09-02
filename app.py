@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-from datetime import datetime
 
 # Configuración inicial de la página
 st.set_page_config(page_title="Terminal Financiero Pro", layout="wide", initial_sidebar_state="expanded")
@@ -96,19 +95,18 @@ def obtener_ultimas_noticias(symbol, limite=3):
         for item in noticias[:limite]:
             content = item.get('content', item)
             titulo = content.get('title', 'Sin título')
-            resumen = content.get('summary', content.get('description', ''))
             proveedor = content.get('provider', {}).get('displayName', 'Yahoo Finance')
             link = content.get('canonicalUrl', {}).get('url', content.get('link', '#'))
             
             pub_date = content.get('pubDate', '')
             if not pub_date and 'providerPublishTime' in item:
+                from datetime import datetime
                 pub_date = datetime.fromtimestamp(item['providerPublishTime']).strftime('%Y-%m-%d %H:%M')
             elif pub_date:
                 pub_date = pub_date.replace('T', ' ').replace('Z', '')[:16]
 
             noticias_procesadas.append({
                 'titulo': titulo,
-                'resumen': resumen,
                 'proveedor': proveedor,
                 'link': link,
                 'fecha': pub_date
@@ -223,64 +221,6 @@ try:
     c2.metric("Rendimiento Posición", f"{pnl_pct:+.2f}%", delta=f"${pnl_usd:,.2f}")
     c3.metric("Distancia a Stop Configurado", f"{dist_stop_config_pct:+.2f}%", delta=f"${stop_loss_val:.2f} Nivel Stop", delta_color="normal")
     c4.metric("Distancia a Soporte Técnico", f"{dist_soporte_pct:+.2f}%", delta=f"${soporte_tecnico:.2f} Mín 20D", delta_color="normal")
-
-    st.markdown("---")
-
-    # --- ZONA DE GRÁFICO TÉCNICO CON SUBPLOTS (VELAS, RSI, MACD) ---
-    st.subheader(f"📈 Gráfico Técnico Avanzado: {ticker_sel}")
-    
-    fig = make_subplots(
-        rows=3, cols=1, 
-        shared_xaxes=True, 
-        vertical_spacing=0.03, 
-        row_heights=[0.6, 0.2, 0.2]
-    )
-
-    # 1. Velas Japonesas y Medias Móviles en Fila 1
-    fig.add_trace(go.Candlestick(
-        x=df_d.index,
-        open=df_d['Open'], high=df_d['High'], low=df_d['Low'], close=df_d['Close'],
-        name='Precio'
-    ), row=1, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=df_d.index, y=df_d['SMA_50'], 
-        line=dict(color='#38bdf8', width=1.5), name='SMA 50'
-    ), row=1, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=df_d.index, y=df_d['SMA_200'], 
-        line=dict(color='#fbbf24', width=1.5), name='SMA 200'
-    ), row=1, col=1)
-
-    # 2. RSI en Fila 2
-    fig.add_trace(go.Scatter(
-        x=df_w.index, y=df_w['RSI'], 
-        line=dict(color='#a855f7', width=1.5), name='RSI (14)'
-    ), row=2, col=1)
-
-    fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", row=2, col=1)
-    fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", row=2, col=1)
-
-    # 3. MACD en Fila 3
-    fig.add_trace(go.Scatter(
-        x=df_w.index, y=df_w['MACD'], 
-        line=dict(color='#3b82f6', width=1.5), name='MACD'
-    ), row=3, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=df_w.index, y=df_w['Signal'], 
-        line=dict(color='#f97316', width=1.5), name='Señal'
-    ), row=3, col=1)
-
-    fig.update_layout(
-        template="plotly_dark",
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=700,
-        xaxis_rangeslider_visible=False,
-        showlegend=False
-    )
-    st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
 
@@ -473,40 +413,4 @@ try:
                         if idx == 0:
                             cell_class = "val-neutral"
                         else:
-                            prev_v = vals[idx-1]
-                            if pd.isna(prev_v):
-                                cell_class = "val-neutral"
-                            else:
-                                if is_inv:
-                                    cell_class = "val-pos" if v < prev_v else "val-neg"
-                                else:
-                                    cell_class = "val-pos" if v > prev_v else "val-neg"
-                    
-                    html_code += f'<td><span class="val-pill {cell_class}">{val_str}</span></td>'
-                
-                sparkline = generar_sparkline_svg(vals)
-                html_code += f'<td style="text-align: center; vertical-align: middle;">{sparkline}</td></tr>'
-
-        html_code += """
-            </tbody>
-        </table>
-        """
-        st.markdown(html_code, unsafe_allow_html=True)
-
-    # --- SECCIÓN DE ÚLTIMAS NOTICIAS ---
-    st.markdown("---")
-    st.subheader(f"📰 Últimas Noticias: {ticker_sel}")
-    noticias = obtener_ultimas_noticias(ticker_sel, limite=3)
-    
-    if noticias:
-        for noti in noticias:
-            st.markdown(f"**[{noti['titulo']}]({noti['link']})**")
-            st.caption(f"📅 {noti['fecha']} | 🏢 Fuente: {noti['proveedor']}")
-            if noti['resumen']:
-                st.write(noti['resumen'])
-            st.markdown("---")
-    else:
-        st.info("No hay noticias recientes disponibles para este activo en este momento.")
-
-except Exception as e:
-    st.error(f"Se produjo un error al procesar los datos: {e}")
+              

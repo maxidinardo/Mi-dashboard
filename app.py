@@ -413,4 +413,27 @@ try:
                     else:
                         val_str = f"{v:.2f}"
                         if idx == 0:
-  
+                            cell_class = "val-neutral"
+                        else:
+                            prev_v = vals[idx-1]
+                            if pd.isna(prev_v):
+                                cell_class = "val-neutral"
+                            else:
+                                if is_inv:
+                                    cell_class = "val-pos" if v < prev_v else "val-neg"
+                                else:
+                                    cell_class = "val-pos" if v > prev_v else "val-neg"
+                    
+                    html_code += f'<td><span class="val-pill {cell_class}">{val_str}</span></td>'
+                
+                sparkline = generar_sparkline_svg(vals)
+                html_code += f'<td style="text-align: center; vertical-align: middle;">{sparkline}</td></tr>'
+
+        html_code += """
+            </tbody>
+        </table>
+        """
+        st.markdown(html_code, unsafe_allow_html=True)
+
+except Exception as e:
+    st.error(f"Se produjo un error al procesar los datos: {e}")

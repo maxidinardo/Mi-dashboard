@@ -413,4 +413,10 @@ try:
                             cell_class = "val-neutral"
                         else:
                             prev = vals[idx-1]
-  
+      else:
+        st.info("No se encontraron noticias recientes disponibles para este activo.")
+
+# --- CIERRE DEL BLOQUE TRY ---
+except Exception as e:
+    st.error(f"Error al cargar el activo seleccionado: {e}")
+

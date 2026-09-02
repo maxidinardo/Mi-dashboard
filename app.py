@@ -413,4 +413,128 @@ try:
                         if idx == 0:
                             cell_class = "val-neutral"
                         else:
-              
+                            prev = vals[idx-1]
+                            if pd.isna(prev) or v == prev:
+                                cell_class = "val-neutral"
+                            else:
+                                is_better = (v < prev) if is_inv else (v > prev)
+                                cell_class = "val-pos" if is_better else "val-neg"
+                    
+                    html_code += f'<td><span class="val-pill {cell_class}">{val_str}</span></td>'
+                
+                spark = generar_sparkline_svg(vals)
+                html_code += f'<td style="text-align: center; vertical-align: middle;">{spark}</td></tr>'
+
+        html_code += "</tbody></table>"
+        st.markdown(html_code, unsafe_allow_html=True)
+
+        # --- ANÁLISIS DINÁMICO BASADO EN TENDENCIAS REALES ---
+        st.markdown(f"### 📋 Lectura de Tendencias Fundamentals ({ticker_sel})")
+
+        def evaluar_tendencia(serie):
+            validos = [v for v in serie if not pd.isna(v)]
+            if len(validos) < 2:
+                return "sin_datos", 0.0
+            inicio, fin = validos[0], validos[-1]
+            if inicio == 0:
+                return "estable", 0.0
+            var_pct = ((fin - inicio) / abs(inicio)) * 100
+            if var_pct > 5:
+                return "creciente", var_pct
+            elif var_pct < -5:
+                return "decreciente", var_pct
+            return "estable", var_pct
+
+        tend_rev, var_rev = evaluar_tendencia(rev_list)
+        tend_eps, var_eps = evaluar_tendencia(eps_list)
+        tend_gross, var_gross = evaluar_tendencia(gross_list)
+        tend_op, var_op = evaluar_tendencia(op_list)
+        tend_fcf, var_fcf = evaluar_tendencia(fcf_list)
+        tend_debt, var_debt = evaluar_tendencia(debt_list)
+
+        if tend_rev == "creciente" and tend_eps == "creciente":
+            diag_crecimiento = f"**Expansión sólida:** Las ventas crecieron un **{var_rev:+.1f}%** acumulado en la serie, alineadas con una mejora del **{var_eps:+.1f}%** en el EPS."
+        elif tend_rev == "creciente" and tend_eps == "decreciente":
+            diag_crecimiento = f"**Crecimiento bajo presión:** A pesar de escalar ingresos (+{var_rev:.1f}%), el EPS retrocedió un **{var_eps:.1f}%**, señal de mayor costo operativo o dilución."
+        elif tend_rev == "decreciente":
+            diag_crecimiento = f"**Contracción en top-line:** Los ingresos cayeron un **{var_rev:.1f}%** en el período, lo que exige atención a la demanda."
+        else:
+            diag_crecimiento = f"**Estabilidad operativa:** Los ingresos y el EPS se mantuvieron sin cambios drásticos."
+
+        if tend_op == "creciente":
+            diag_margen = f"**Eficiencia al alza:** El margen operativo aumentó un **{var_op:+.1f}%**, mostrando apalancamiento operativo."
+        elif tend_op == "decreciente":
+            diag_margen = f"**Compresión de márgenes:** El margen operativo cedió un **{var_op:.1f}%**, reflejando mayor presión de costos."
+        else:
+            diag_margen = f"**Márgenes consistentes:** La rentabilidad operativa permaneció estable durante la serie."
+
+        if tend_fcf == "creciente" and tend_debt != "creciente":
+            diag_caja = f"**Generación limpia de caja:** El FCF se expandió un **{var_fcf:+.1f}%** mientras la deuda se mantuvo bajo control ({var_debt:+.1f}%)."
+        elif tend_debt == "creciente":
+            diag_caja = f"**Incremento del apalancamiento:** La deuda subió un **{var_debt:+.1f}%**. Conviene monitorear la cobertura de intereses contra la caja generada."
+        else:
+            diag_caja = f"**Flujo de caja sostenible:** La generación de Free Cash Flow registra una variación de **{var_fcf:+.1f}%** en el período."
+
+        st.markdown(
+            f"• **Crecimiento e Ingresos:** {diag_crecimiento}\n\n"
+            f"• **Rentabilidad y Márgenes:** {diag_margen}\n\n"
+            f"• **Caja y Estructura Financiera:** {diag_caja}"
+        )
+
+    st.markdown("---")
+
+    # --- GRÁFICO DE VELAS (5 AÑOS) CON FIBONACCI ---
+    st.subheader("📈 Gráfico de Velas (5 Años) con Estructura de Fibonacci")
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.6, 0.2, 0.2])
+
+    fig.add_trace(go.Candlestick(x=df_d.index, open=df_d['Open'], high=df_d['High'], low=df_d['Low'], close=df_d['Close'], name="Precio"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df_d.index, y=df_d['SMA_50'], line=dict(color='#FF9900', width=1.5), name="SMA 50"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df_d.index, y=df_d['SMA_200'], line=dict(color='#0066FF', width=1.5), name="SMA 200"), row=1, col=1)
+
+    fig.add_hline(y=max_fib, line_dash="dash", line_color="red", annotation_text=f"Fib 0% (${max_fib:.1f})", row=1, col=1)
+    fig.add_hline(y=fib_382, line_dash="dash", line_color="orange", annotation_text=f"Fib 38.2% (${fib_382:.1f})", row=1, col=1)
+    fig.add_hline(y=fib_618, line_dash="dash", line_color="gold", annotation_text=f"Fib 61.8% (${fib_618:.1f})", row=1, col=1)
+    fig.add_hline(y=min_fib, line_dash="dash", line_color="green", annotation_text=f"Fib 100% (${min_fib:.1f})", row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=df_w.index, y=df_w['RSI'], line=dict(color='#AB63FA', width=1.5), name="RSI (Semanal)"), row=2, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+
+    fig.add_trace(go.Scatter(x=df_w.index, y=df_w['MACD'], line=dict(color='#00FFCC', width=1), name="MACD"), row=3, col=1)
+    fig.add_trace(go.Scatter(x=df_w.index, y=df_w['Signal'], line=dict(color='#FF0055', width=1), name="Signal"), row=3, col=1)
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=700,
+        xaxis_rangeslider_visible=True,
+        xaxis_rangeslider_thickness=0.05,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- MÓDULO DE ÚLTIMAS NOTICIAS (YAHOO FINANCE) ---
+    st.markdown("---")
+    st.subheader(f"📰 Últimas Noticias Bursátiles ({ticker_sel})")
+
+    noticias = obtener_ultimas_noticias(ticker_sel, limite=3)
+
+    if len(noticias) > 0:
+        cols_noticias = st.columns(len(noticias))
+        for idx, noticia in enumerate(noticias):
+            with cols_noticias[idx]:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; height: 100%;">
+                        <span style="color: #38bdf8; font-size: 11px; font-weight: bold;">{noticia['proveedor']}</span>
+                        <span style="color: #94a3b8; font-size: 11px; float: right;">{noticia['fecha']}</span>
+                        <h4 style="font-size: 14px; margin: 10px 0; color: #f8fafc;">{noticia['titulo']}</h4>
+                        <a href="{noticia['link']}" target="_blank" style="color: #34d399; text-decoration: none; font-size: 12px; font-weight: bold;">Leer noticia completa ↗</a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+    else:
+        st.info("No se encontraron noticias recientes disponibles para este activo.")
+
+except Exception as e:
+    st.error(f"Error al cargar el activo seleccionado: {e}")

@@ -423,4 +423,90 @@ try:
                 "title": "Rentabilidad y Ventaja Competitiva",
                 "metrics": [
                     {"name": "Margen Bruto", "unit": "%", "vals": gross_list},
-                    {"na
+                    {"name": "Margen Operativo", "unit": "%", "vals": op_list}
+                ]
+            },
+            {
+                "title": "Generación de Caja",
+                "metrics": [
+                    {"name": "Free Cash Flow (FCF)", "unit": "$B", "vals": fcf_list}
+                ]
+            },
+            {
+                "title": "Estructura de Deuda",
+                "metrics": [
+                    {"name": "EBITDA", "unit": "$B", "vals": ebitda_list},
+                    {"name": "Deuda Total", "unit": "$B", "vals": debt_list, "is_inverse": True}
+                ]
+            }
+        ]
+
+        html_code = f"""
+        <table class="fund-table">
+            <thead>
+                <tr>
+                    <th>Indicador</th>
+                    <th>{headers_years[0]}</th>
+                    <th>{headers_years[1]}</th>
+                    <th>{headers_years[2]}</th>
+                    <th>{headers_years[3]}</th>
+                    <th style="text-align: center;">Tendencia</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+
+        for grp in groups:
+            html_code += f'<tr><td colSpan="6" class="fund-group-header">{grp["title"]}</td></tr>'
+            for m in grp["metrics"]:
+                vals = m["vals"]
+                is_inv = m.get("is_inverse", False)
+                
+                html_code += f'<tr><td>{m["name"]} <span style="color:#64748b; font-size:11px;">({m["unit"]})</span></td>'
+                
+                for idx, v in enumerate(vals):
+                    if pd.isna(v):
+                        val_str = "N/A"
+                        cell_class = "val-neutral"
+                    else:
+                        val_str = f"{v:.2f}"
+                        if idx == 0:
+                            cell_class = "val-neutral"
+                        else:
+                            prev_v = vals[idx-1]
+                            if pd.isna(prev_v):
+                                cell_class = "val-neutral"
+                            else:
+                                if is_inv:
+                                    cell_class = "val-pos" if v < prev_v else "val-neg"
+                                else:
+                                    cell_class = "val-pos" if v > prev_v else "val-neg"
+                    
+                    html_code += f'<td><span class="val-pill {cell_class}">{val_str}</span></td>'
+                
+                sparkline = generar_sparkline_svg(vals)
+                html_code += f'<td style="text-align: center; vertical-align: middle;">{sparkline}</td></tr>'
+
+        html_code += """
+            </tbody>
+        </table>
+        """
+        st.markdown(html_code, unsafe_allow_html=True)
+
+    # --- SECCIÓN DE ÚLTIMAS NOTICIAS ---
+    st.markdown("---")
+    st.subheader(f"📰 Últimas Noticias: {ticker_sel}")
+    noticias = obtener_ultimas_noticias(ticker_sel, limite=3)
+    
+    if noticias:
+        for noti in noticias:
+            st.markdown(f"**[{noti['titulo']}]({noti['link']})**")
+            st.caption(f"📅 {noti['fecha']} | 🏢 Fuente: {noti['proveedor']}")
+            if noti['resumen']:
+                st.write(noti['resumen'])
+            st.markdown("---")
+    else:
+        st.info("No hay noticias recientes disponibles para este activo en este momento.")
+
+except Exception as e:
+    st.error(f"Se produjo un error al procesar los datos: {e}")

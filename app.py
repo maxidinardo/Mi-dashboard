@@ -412,4 +412,4 @@ try:
                         cell_class = "val-neutral"
                     else:
                         val_str = f"{v:.2f}"
-                        # AQUI ESTABA E
+                        

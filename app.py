@@ -226,6 +226,64 @@ try:
 
     st.markdown("---")
 
+    # --- ZONA DE GRÁFICO TÉCNICO CON SUBPLOTS (VELAS, RSI, MACD) ---
+    st.subheader(f"📈 Gráfico Técnico Avanzado: {ticker_sel}")
+    
+    fig = make_subplots(
+        rows=3, cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.03, 
+        row_heights=[0.6, 0.2, 0.2]
+    )
+
+    # 1. Velas Japonesas y Medias Móviles en Fila 1
+    fig.add_trace(go.Candlestick(
+        x=df_d.index,
+        open=df_d['Open'], high=df_d['High'], low=df_d['Low'], close=df_d['Close'],
+        name='Precio'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=df_d.index, y=df_d['SMA_50'], 
+        line=dict(color='#38bdf8', width=1.5), name='SMA 50'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=df_d.index, y=df_d['SMA_200'], 
+        line=dict(color='#fbbf24', width=1.5), name='SMA 200'
+    ), row=1, col=1)
+
+    # 2. RSI en Fila 2
+    fig.add_trace(go.Scatter(
+        x=df_w.index, y=df_w['RSI'], 
+        line=dict(color='#a855f7', width=1.5), name='RSI (14)'
+    ), row=2, col=1)
+
+    fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", row=2, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", row=2, col=1)
+
+    # 3. MACD en Fila 3
+    fig.add_trace(go.Scatter(
+        x=df_w.index, y=df_w['MACD'], 
+        line=dict(color='#3b82f6', width=1.5), name='MACD'
+    ), row=3, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=df_w.index, y=df_w['Signal'], 
+        line=dict(color='#f97316', width=1.5), name='Señal'
+    ), row=3, col=1)
+
+    fig.update_layout(
+        template="plotly_dark",
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=700,
+        xaxis_rangeslider_visible=False,
+        showlegend=False
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
     # --- INTERPRETACIÓN ESTRUCTURAL Y FIBONACCI ---
     st.subheader(f"📐 Interpretación de Estructuras y Niveles Clave ({ticker_sel})")
     
@@ -365,52 +423,4 @@ try:
                 "title": "Rentabilidad y Ventaja Competitiva",
                 "metrics": [
                     {"name": "Margen Bruto", "unit": "%", "vals": gross_list},
-                    {"name": "Margen Operativo", "unit": "%", "vals": op_list}
-                ]
-            },
-            {
-                "title": "Generación de Caja",
-                "metrics": [
-                    {"name": "Free Cash Flow (FCF)", "unit": "$B", "vals": fcf_list}
-                ]
-            },
-            {
-                "title": "Estructura de Deuda",
-                "metrics": [
-                    {"name": "EBITDA", "unit": "$B", "vals": ebitda_list},
-                    {"name": "Deuda Total", "unit": "$B", "vals": debt_list, "is_inverse": True}
-                ]
-            }
-        ]
-
-        html_code = f"""
-        <table class="fund-table">
-            <thead>
-                <tr>
-                    <th>Indicador</th>
-                    <th>{headers_years[0]}</th>
-                    <th>{headers_years[1]}</th>
-                    <th>{headers_years[2]}</th>
-                    <th>{headers_years[3]}</th>
-                    <th style="text-align: center;">Tendencia</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-
-        for grp in groups:
-            html_code += f'<tr><td colSpan="6" class="fund-group-header">{grp["title"]}</td></tr>'
-            for m in grp["metrics"]:
-                vals = m["vals"]
-                is_inv = m.get("is_inverse", False)
-                
-                html_code += f'<tr><td>{m["name"]} <span style="color:#64748b; font-size:11px;">({m["unit"]})</span></td>'
-                
-                for idx, v in enumerate(vals):
-                    if pd.isna(v):
-                        val_str = "N/A"
-                        cell_class = "val-neutral"
-                    else:
-                        val_str = f"{v:.2f}"
-                        if idx == 0:
-                        pass
+                    {"na

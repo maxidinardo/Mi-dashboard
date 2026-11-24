@@ -140,7 +140,25 @@ if not lista_tickers:
     st.warning("Agrega al menos un ticker válido en la barra lateral para comenzar.")
     st.stop()
 
-ticker_sel = st.sidebar.selectbox("🎯 Selecciona Activo:", lista_tickers)
+if "ticker_activo" not in st.session_state or st.session_state["ticker_activo"] not in lista_tickers:
+    st.session_state["ticker_activo"] = lista_tickers[0]
+
+
+def sincronizar_ticker_sidebar():
+    st.session_state["ticker_activo"] = st.session_state["selector_sidebar"]
+
+
+def sincronizar_ticker_rapido():
+    st.session_state["ticker_activo"] = st.session_state["selector_rapido"]
+
+
+st.sidebar.selectbox(
+    "🎯 Selecciona Activo:",
+    lista_tickers,
+    index=lista_tickers.index(st.session_state["ticker_activo"]),
+    key="selector_sidebar",
+    on_change=sincronizar_ticker_sidebar,
+)
 
 
 # --- DESCARGA DE DATOS ---
@@ -159,6 +177,70 @@ def cargar_datos_completos(symbol):
     cashflow = tk.cashflow if tk.cashflow is not None else pd.DataFrame()
     balance = tk.balancesheet if tk.balancesheet is not None else pd.DataFrame()
     return hist_w, hist_d, info, financials, cashflow, balance
+
+
+@st.cache_data(ttl=900)
+def obtener_resumen_cartera(cartera_json: str) -> pd.DataFrame:
+    df_c = pd.DataFrame(json.loads(cartera_json))
+    if df_c.empty:
+        return pd.DataFrame()
+
+    tickers = df_c["Ticker"].unique().tolist()
+    precios = {}
+
+    try:
+        data = yf.download(tickers, period="5d", interval="1d", group_by="ticker", progress=False, threads=True)
+        for t in tickers:
+            try:
+                if len(tickers) == 1:
+                    serie = data["Close"].dropna()
+                else:
+                    serie = data[t]["Close"].dropna()
+                if not serie.empty:
+                    precios[t] = float(serie.iloc[-1])
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    for t in tickers:
+        if t not in precios:
+            try:
+                hist_fallback = yf.Ticker(t).history(period="5d", interval="1d")["Close"].dropna()
+                if not hist_fallback.empty:
+                    precios[t] = float(hist_fallback.iloc[-1])
+            except Exception:
+                pass
+
+    filas = []
+    for _, row in df_c.iterrows():
+        t = row["Ticker"]
+        cant = float(row.get("Cantidad", 0.0) or 0.0)
+        costo = float(row.get("Costo_Promedio", 0.0) or 0.0)
+        precio = precios.get(t, np.nan)
+
+        if pd.isna(precio) or cant <= 0:
+            continue
+
+        inversion = cant * costo
+        valor_actual = cant * precio
+        pnl_usd = valor_actual - inversion
+        pnl_pct = ((precio - costo) / costo * 100.0) if costo > 0 else 0.0
+
+        filas.append(
+            {
+                "Ticker": t,
+                "Cantidad": cant,
+                "Costo_Promedio": costo,
+                "Precio_Actual": precio,
+                "Inversion": inversion,
+                "Valor_Actual": valor_actual,
+                "PnL_USD": pnl_usd,
+                "PnL_Pct": pnl_pct,
+            }
+        )
+
+    return pd.DataFrame(filas)
 
 
 # --- FUNCIÓN NOTICIAS YAHOO FINANCE ---
@@ -232,7 +314,124 @@ def safe_float(val, default=0.0):
         return default
 
 
-# --- EJECUCIÓN PRINCIPAL DE LA APLICACIÓN ---
+# --- TÍTULO Y MAPA DE CALOR INICIAL DE LA CARTERA ---
+st.title("⚡ Terminal Financiero Pro")
+
+cartera_limpia_json = normalizar_cartera(cartera_df).to_json(orient="records")
+df_resumen_cartera = obtener_resumen_cartera(cartera_limpia_json)
+
+if not df_resumen_cartera.empty:
+    st.subheader("🔥 Mapa de Calor de Cartera vs. Precio de Compra")
+    st.caption("Haz clic sobre cualquier bloque para cargar su análisis detallado automáticamente.")
+
+    total_valor = df_resumen_cartera["Valor_Actual"].sum()
+    total_inv = df_resumen_cartera["Inversion"].sum()
+    total_pnl_usd = total_valor - total_inv
+    total_pnl_pct = (total_pnl_usd / total_inv * 100.0) if total_inv > 0 else 0.0
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Valor Total Cartera", f"${total_valor:,.2f}")
+    m2.metric("Inversión Total", f"${total_inv:,.2f}")
+    m3.metric("Ganancia / Pérdida Total", f"{total_pnl_pct:+.2f}%", delta=f"${total_pnl_usd:+,.2f}")
+
+    labels = [
+        f"{r['Ticker']}<br>{r['PnL_Pct']:+.1f}%<br>${r['Valor_Actual']:,.0f}"
+        for _, r in df_resumen_cartera.iterrows()
+    ]
+    customdata = np.stack(
+        [
+            df_resumen_cartera["Ticker"].values,
+            df_resumen_cartera["Costo_Promedio"].values,
+            df_resumen_cartera["Precio_Actual"].values,
+            df_resumen_cartera["Valor_Actual"].values,
+            df_resumen_cartera["PnL_USD"].values,
+            df_resumen_cartera["PnL_Pct"].values,
+        ],
+        axis=-1,
+    )
+
+    colorscale_rojo_verde = [
+        [0.0, "#b91c1c"],
+        [0.35, "#ef4444"],
+        [0.5, "#334155"],
+        [0.65, "#10b981"],
+        [1.0, "#047857"],
+    ]
+
+    fig_heatmap = go.Figure(
+        go.Treemap(
+            labels=labels,
+            parents=[""] * len(df_resumen_cartera),
+            values=df_resumen_cartera["Valor_Actual"],
+            customdata=customdata,
+            marker=dict(
+                colors=df_resumen_cartera["PnL_Pct"],
+                colorscale=colorscale_rojo_verde,
+                cmid=0,
+                cmin=-25,
+                cmax=25,
+                line=dict(width=2, color="#0e1117"),
+                colorbar=dict(
+                    title="Rend. %",
+                    ticksuffix="%",
+                    thickness=14,
+                    len=0.9,
+                ),
+            ),
+            textinfo="label",
+            textfont=dict(size=13, color="#ffffff"),
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>"
+                "Rendimiento vs. Compra: <b>%{customdata[5]:+.2f}%</b> (%{customdata[4]:+$,.2f})<br>"
+                "Precio Actual: $%{customdata[2]:.2f} | Costo Prom.: $%{customdata[1]:.2f}<br>"
+                "Valor Posición: $%{customdata[3]:,.2f}"
+                "<extra></extra>"
+            ),
+        )
+    )
+
+    fig_heatmap.update_layout(
+        template="plotly_dark",
+        height=390,
+        margin=dict(l=5, r=5, t=5, b=5),
+    )
+
+    evento_heatmap = st.plotly_chart(
+        fig_heatmap,
+        use_container_width=True,
+        on_select="rerun",
+        selection_mode="points",
+        key="heatmap_cartera",
+    )
+
+    if evento_heatmap and evento_heatmap.selection and evento_heatmap.selection.points:
+        punto = evento_heatmap.selection.points[0]
+        cd = punto.get("customdata")
+        if isinstance(cd, (list, tuple, np.ndarray)) and len(cd) > 0:
+            ticker_clicado = str(cd[0]).strip().upper()
+            if ticker_clicado in lista_tickers and ticker_clicado != st.session_state["ticker_activo"]:
+                st.session_state["ticker_activo"] = ticker_clicado
+                st.rerun()
+
+st.markdown("---")
+
+# --- SELECTOR RÁPIDO SINCRONIZADO ---
+col_sel_izq, col_sel_der = st.columns([2, 3])
+with col_sel_izq:
+    st.selectbox(
+        "⚡ Selector rápido de activo:",
+        lista_tickers,
+        index=lista_tickers.index(st.session_state["ticker_activo"]),
+        key="selector_rapido",
+        on_change=sincronizar_ticker_rapido,
+    )
+with col_sel_der:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.caption(f"Mostrando análisis detallado de **{st.session_state['ticker_activo']}**.")
+
+ticker_sel = st.session_state["ticker_activo"]
+
+# --- EJECUCIÓN PRINCIPAL DEL ACTIVO SELECCIONADO ---
 try:
     posicion = cartera_df[cartera_df["Ticker"] == ticker_sel].iloc[0]
     cant = safe_float(posicion["Cantidad"], 0.0)
@@ -282,7 +481,7 @@ try:
     st.sidebar.caption(f"• **Soporte Estructural (Mín 20D):** `${soporte_tecnico:.2f}` *({dist_soporte_pct:+.2f}%)*")
     st.sidebar.caption(f"• **Por Volatilidad (ATR 2x):** `${stop_atr:.2f}` *({dist_atr_pct:+.2f}%)*")
 
-    st.title(f"⚡ Panel {ticker_sel}")
+    st.header(f"🎯 Detalle del Activo: {ticker_sel}")
 
     # --- INDICADORES TÉCNICOS ---
     df_d["SMA_50"] = df_d["Close"].rolling(50).mean()
@@ -731,4 +930,3 @@ try:
 
 except Exception as e:
     st.error(f"Error al cargar el activo seleccionado: {e}")
-    

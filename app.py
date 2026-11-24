@@ -144,12 +144,18 @@ if "ticker_activo" not in st.session_state or st.session_state["ticker_activo"] 
     st.session_state["ticker_activo"] = lista_tickers[0]
 
 
+def establecer_ticker(nuevo_ticker: str):
+    nuevo_ticker = str(nuevo_ticker).strip().upper()
+    if nuevo_ticker in lista_tickers:
+        st.session_state["ticker_activo"] = nuevo_ticker
+
+
 def sincronizar_ticker_sidebar():
-    st.session_state["ticker_activo"] = st.session_state["selector_sidebar"]
+    establecer_ticker(st.session_state["selector_sidebar"])
 
 
 def sincronizar_ticker_rapido():
-    st.session_state["ticker_activo"] = st.session_state["selector_rapido"]
+    establecer_ticker(st.session_state["selector_rapido"])
 
 
 st.sidebar.selectbox(
@@ -240,7 +246,7 @@ def obtener_resumen_cartera(cartera_json: str) -> pd.DataFrame:
             }
         )
 
-    return pd.DataFrame(filas)
+    return pd.DataFrame(filas).reset_index(drop=True)
 
 
 # --- FUNCIÓN NOTICIAS YAHOO FINANCE ---
@@ -322,7 +328,7 @@ df_resumen_cartera = obtener_resumen_cartera(cartera_limpia_json)
 
 if not df_resumen_cartera.empty:
     st.subheader("🔥 Mapa de Calor de Cartera vs. Precio de Compra")
-    st.caption("Haz clic sobre cualquier bloque para cargar su análisis detallado automáticamente.")
+    st.caption("Usa los botones rápidos o el selector de abajo para cambiar el activo sin hacer zoom en el mosaico.")
 
     total_valor = df_resumen_cartera["Valor_Actual"].sum()
     total_inv = df_resumen_cartera["Inversion"].sum()
@@ -360,10 +366,12 @@ if not df_resumen_cartera.empty:
 
     fig_heatmap = go.Figure(
         go.Treemap(
+            ids=df_resumen_cartera["Ticker"].tolist(),
             labels=labels,
             parents=[""] * len(df_resumen_cartera),
             values=df_resumen_cartera["Valor_Actual"],
             customdata=customdata,
+            tiling=dict(packing="squarify"),
             marker=dict(
                 colors=df_resumen_cartera["PnL_Pct"],
                 colorscale=colorscale_rojo_verde,
@@ -404,18 +412,28 @@ if not df_resumen_cartera.empty:
         key="heatmap_cartera",
     )
 
+    # Detección robusta por point_number / id / customdata
     if evento_heatmap and evento_heatmap.selection and evento_heatmap.selection.points:
         punto = evento_heatmap.selection.points[0]
-        cd = punto.get("customdata")
-        if isinstance(cd, (list, tuple, np.ndarray)) and len(cd) > 0:
-            ticker_clicado = str(cd[0]).strip().upper()
-            if ticker_clicado in lista_tickers and ticker_clicado != st.session_state["ticker_activo"]:
-                st.session_state["ticker_activo"] = ticker_clicado
-                st.rerun()
+        ticker_detectado = None
+
+        pt_num = punto.get("point_number")
+        if pt_num is not None and 0 <= int(pt_num) < len(df_resumen_cartera):
+            ticker_detectado = str(df_resumen_cartera.iloc[int(pt_num)]["Ticker"]).strip().upper()
+        elif punto.get("id"):
+            ticker_detectado = str(punto.get("id")).strip().upper()
+        else:
+            cd = punto.get("customdata")
+            if isinstance(cd, (list, tuple, np.ndarray)) and len(cd) > 0:
+                ticker_detectado = str(cd[0]).strip().upper()
+
+        if ticker_detectado and ticker_detectado in lista_tickers and ticker_detectado != st.session_state["ticker_activo"]:
+            st.session_state["ticker_activo"] = ticker_detectado
+            st.rerun()
 
 st.markdown("---")
 
-# --- SELECTOR RÁPIDO SINCRONIZADO ---
+# --- SELECTOR RÁPIDO Y BOTONES DE ACCESO DIRECTO ---
 col_sel_izq, col_sel_der = st.columns([2, 3])
 with col_sel_izq:
     st.selectbox(
@@ -427,7 +445,19 @@ with col_sel_izq:
     )
 with col_sel_der:
     st.markdown("<br>", unsafe_allow_html=True)
-    st.caption(f"Mostrando análisis detallado de **{st.session_state['ticker_activo']}**.")
+    st.caption(f"Activo seleccionado actualmente: **{st.session_state['ticker_activo']}**")
+
+# Fila de botones rápidos para cambiar sin zoom en el treemap
+n_cols_btn = min(len(lista_tickers), 11)
+if n_cols_btn > 0:
+    cols_chips = st.columns(n_cols_btn)
+    for idx_t, t_sym in enumerate(lista_tickers[:n_cols_btn]):
+        es_actual = t_sym == st.session_state["ticker_activo"]
+        etiqueta_btn = f"▶ {t_sym}" if es_actual else t_sym
+        if cols_chips[idx_t].button(etiqueta_btn, key=f"chip_{t_sym}", use_container_width=True):
+            if not es_actual:
+                st.session_state["ticker_activo"] = t_sym
+                st.rerun()
 
 ticker_sel = st.session_state["ticker_activo"]
 
